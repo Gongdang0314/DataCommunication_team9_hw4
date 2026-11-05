@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local execution evidence and credentials
+/runs/
+/output/
+/dist/
+*.pem
+*.key
+.env

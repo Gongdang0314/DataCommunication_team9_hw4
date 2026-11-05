@@ -1,0 +1,2 @@
+# Simulation uses only Python standard library. Pillow is for GIF/previews.
+Pillow>=10

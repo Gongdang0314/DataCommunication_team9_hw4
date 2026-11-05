@@ -1,0 +1,10 @@
+AA   ##  A
+AA   ##  A
+A ####### 
+ #   #  C#
+       B #
+        D 
+  XX      
+ X Z      
+          
+AA       A

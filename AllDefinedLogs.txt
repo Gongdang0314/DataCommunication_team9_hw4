@@ -1,0 +1,70 @@
+G9 HW4 로그 명세
+
+공통 형식
+[HH:MM:SS.mmm] NODE | EVENT | STATUS | message
+NODE: ASSIGNER 또는 WORKER{k}. k는 ASSIGN으로 받은 번호.
+STATUS: SUCCESS(정상 처리), INFO(진행/통계), FAIL(실패 종료), WARN(주의).
+시각: 실제 UTC 시각. Readme.txt에도 UTC를 명시한다.
+파일: Assigner.txt, Worker0.txt ~ Worker(N-1).txt.
+Worker의 접속 단계 기록은 k를 받은 뒤 해당 Worker 파일 앞부분에 보존한다.
+
+Assigner.txt 메시지
+INIT | SUCCESS | N=... bands=[...] team=... random_n=True/False listen=host:port timezone=UTC
+  실행 N, 띠 경계, 조번호, 무작위 선택 여부, 수신 주소. --n 사용 시 random_n=False.
+CONNECT | SUCCESS | k=... peer=IP:port (접속수/N)
+  accept 및 HELLO 확인. 먼저 접속한 Worker부터 번호 배정.
+ASSIGN | SUCCESS | k=... rows=[y0,y1) h=... sent_rows=...
+  초기 그림 h줄과 canvas1/2 h+2줄씩 전송. sent_rows=3h+4(명령 줄 제외).
+SAVE | SUCCESS | roundXXXX.txt 12880B hash=........
+  0 및 100 Round마다 round 파일 저장과 SHA-256 앞 8자리.
+  frame은 10 Round마다 별도 저장하며, frame만 저장할 때는 개별 로그를 생략한다.
+ROUND | INFO | r=start..end complete
+  100개 Round 완료 구간. 실행 Round 번호는 0~2999.
+RESULT | SUCCESS | r=start..end received=... verified r,k,rows
+  해당 100 Round의 N*100개 결과에서 Round/Worker/줄 형식 검증 완료.
+BARRIER | INFO | r=start..end avg_round_ms=... max_round_ms=... avg_wait_ms=... max_wait_ms=... slowest=Wk(count/100) normal_bytes_avg=... full_bytes_avg=...
+  100 Round 구간 통계. slowest는 가장 자주 마지막 결과를 보낸 Worker와 횟수.
+  normal_bytes_avg는 구간 내 일반 90 Round, full_bytes_avg는 띠 전체 전송 10 Round의 평균 바이트.
+REPAINT | INFO | r=1000/2000 workers apply canvas1/2 + conversion including halos; saved board is before repaint
+  덧칠 시점 안내. 이미 저장된 round1000/2000의 그림은 덧칠 전 상태.
+TERMINATE | SUCCESS | JSON 실측 요약
+  team/n/random_n/bands/timezone/port, rounds, elapsed_seconds, rounds_per_second,
+  avg_round_ms/max_round_ms/avg_wait_ms/max_wait_ms, slowest_counts,
+  normal_bytes_avg/full_bytes_avg, worker_addresses.
+  3000 Round와 BYE 송신 및 모든 Handler join을 마친 뒤 기록.
+TERMINATE | FAIL | 예외 원인
+  프로토콜 불일치, 단절, 시간 초과, 파일 오류 등. 연결 종료와 Handler 정리 후 실패 종료.
+
+Worker{k}.txt 메시지
+CONNECT | SUCCESS | host=... port=... timezone=UTC
+  실제 접속 완료 시각을 보관했다가 ASSIGN으로 k를 받은 후 파일 앞부분에 기록.
+ASSIGN | SUCCESS | k=... N=... rows=[y0,y1) h=... team=...
+  ASSIGN 명령의 Worker 번호 및 띠 범위 검증 후 기록.
+REPAINT | INFO | r=1000 canvas1 + brian, including halo
+REPAINT | INFO | r=2000 canvas2 + cyclic team=..., including halo
+  해당 작업판과 Halo를 포함하여 덧칠/변환 적용.
+ROUND | INFO | r=start..end avg_compute_ms=... max_compute_ms=...
+  100 Round 구간 처리시간 평균/최대.
+RESULT | SUCCESS | r=... k=... sent rounds=...
+  100 Round마다 송신 완료 및 누적 Round 수.
+TERMINATE | SUCCESS | BYE rounds=3000 avg_compute_ms=...
+  3000 Round 처리 및 BYE 수신. 자세한 통계는 Worker{k}.json에도 기록.
+TERMINATE | FAIL | 예외 원인
+  k 확정 후 발생한 오류. k를 받기 전 실패는 표준 오류의 Worker FAIL 메시지로 확인.
+
+성능 지표의 의미
+round time: Assigner Main의 시작 시각(Handler 시작/다음 Round 통지 직전)부터
+            N개 RESULT가 도착하여 Main이 깨어난 시각까지의 차이.
+barrier wait: 같은 Round RESULT의 가장 늦은 도착 - 가장 빠른 도착.
+worker compute: Worker가 ROUND를 수신한 뒤 RESULT를 송신할 때까지.
+traffic: 줄바꿈 포함 ROUND/RESULT 메시지 바이트. 일반/띠 전체 전송 Round를 구분.
+elapsed: t_end[2999] - t_start[0]. throughput: 3000 / elapsed.
+성능 측정은 time.perf_counter()를 사용하며 실제 시각 표시와 분리한다.
+
+추가 파일/콘솔
+run.json: 실행 설정. summary.json: Assigner의 최종 실측 요약.
+metrics.json: 각 Round의 seconds/wait/slowest/bytes 원자료.
+Worker{k}.json: k/n/team/height/rounds 및 평균/최대 compute 측정값.
+콘솔의 READY/PROGRESS/PASS 및 Worker FAIL/Assigner FAIL은 실행 도우미 메시지이며
+위의 과제 로그 형식 파일을 대체하지 않는다.
+PROGRESS는 100 Round마다 G조번호, N, 완료 Round/3000, 누적 실행 초를 표시한다.
