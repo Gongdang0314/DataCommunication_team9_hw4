@@ -13,8 +13,10 @@ import random
 WIDTH, HEIGHT = 160, 80
 ROOT = Path(__file__).resolve().parents[1]
 
-# A hand-defined 5-by-7 uppercase bitmap font. Each occupied pixel is printed
-# twice horizontally, making the letters legible in a tall terminal cell.
+# 직접 설계한 5×7 비트맵 글꼴: 대문자 A-Z와 숫자 9.
+# 각 문자는 "01110/10001/..." 형태의 7줄 × 5비트 패턴이며,
+# draw_text()에서 가로 2배 확대(px, px+1)하여 터미널 셀에서도 읽기 쉽게 표시.
+# 글꼴 패턴은 모눈종이에 점을 찍어 만든 뒤 여기에 옮긴 것임.
 FONT = {
     "A": "01110/10001/10001/11111/10001/10001/10001",
     "B": "11110/10001/10001/11110/10001/10001/11110",
